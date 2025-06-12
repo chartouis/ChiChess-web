@@ -1,8 +1,7 @@
-import axios from "axios";
 import { useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { Piece, Square } from "react-chessboard/dist/chessboard/types";
-import { API_URL } from "./appconfig";
+import { Client, Stomp } from "@stomp/stompjs";
 
 export default function Board() {
   type move = {
@@ -11,29 +10,47 @@ export default function Board() {
     promotion: string;
   };
 
-  const sendMoveRequest = (Move: move): boolean => {
-    axios
-      .post(
-        API_URL + "/move",
-        {
-          roomId: roomId,
-          from: Move.from,
-          to: Move.to,
-          promotion: Move.promotion,
-        },
-        { withCredentials: true }
-      )
-      .then((resp) => {
-        return resp;
-      });
-    return false;
-  };
-
   const [game, setGame] = useState(
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
   );
 
   const [roomId, setRoomId] = useState("");
+
+  const stompClient = new Client({
+    brokerURL: "ws://localhost:8080/api/ws",
+
+    onConnect: () => {
+      console.log("Connected to WebSocket");
+      stompClient.subscribe(`/subscribed/game/${roomId}`, (message) => {
+        console.log("Received:", JSON.parse(message.body));
+      });
+    },
+    onStompError: (error) => {
+      console.error("Error:", error);
+    },
+  });
+
+  const sendMoveRequest = (move: move): boolean => {
+    // Start connection
+    stompClient.activate();
+    
+
+    if (!stompClient.connected) {
+      stompClient.deactivate();
+    }
+
+    if (!stompClient.active) {
+      console.log("Not connected, activating...");
+      stompClient.activate();
+      return false;
+    }
+
+    stompClient.publish({
+      destination: `/api/game/${roomId}/move`,
+      body: JSON.stringify(move),
+    });
+    return true;
+  };
 
   function onDrop(
     sourceSquare: Square,
@@ -48,6 +65,10 @@ export default function Board() {
     return move;
   }
 
+  function connect() {
+    stompClient.activate();
+  }
+
   return (
     <div className="w-dvh">
       <div className="flex flex-col text-white">
@@ -60,7 +81,11 @@ export default function Board() {
           className="border rounded px-3 py-2"
         />
       </div>
-      <Chessboard onPieceDrop={onDrop} autoPromoteToQueen={true} />
+      <Chessboard
+        onPieceDrop={onDrop}
+        autoPromoteToQueen={true}
+        position={game}
+      />
     </div>
   );
 }
