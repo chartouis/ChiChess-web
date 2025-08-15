@@ -1,91 +1,182 @@
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { Piece, Square } from "react-chessboard/dist/chessboard/types";
-import { Client, Stomp } from "@stomp/stompjs";
 
-export default function Board() {
-  type move = {
-    from: string;
-    to: string;
-    promotion: string;
-  };
+type ChessMessage = {
+  type: string;
+  [key: string]: any;
+};
 
-  const [game, setGame] = useState(
+type MoveMessage = {
+  from: string;
+  to: string;
+  promotion: string;
+};
+
+const ChessWebSocketBoard: React.FC = () => {
+  const socketRef = useRef<WebSocket | null>(null);
+  const [gameId, setGameId] = useState("");
+  const [messages, setMessages] = useState<ChessMessage[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [position, setPosition] = useState(
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
   );
 
-  const [roomId, setRoomId] = useState("");
+  const connect = () => {
+    if (connected || !gameId) return;
 
-  const stompClient = new Client({
-    brokerURL: "ws://localhost:8080/api/ws",
+    const socket = new WebSocket(`ws://localhost:8081/api/ws/game/${gameId}`);
+    socketRef.current = socket;
 
-    onConnect: () => {
-      console.log("Connected to WebSocket");
-      stompClient.subscribe(`/subscribed/game/${roomId}`, (message) => {
-        console.log("Received:", JSON.parse(message.body));
-      });
-    },
-    onStompError: (error) => {
-      console.error("Error:", error);
-    },
-  });
+    socket.onopen = () => {
+      console.log("WebSocket connected");
+      setConnected(true);
+    };
 
-  const sendMoveRequest = (move: move): boolean => {
-    // Start connection
-    stompClient.activate();
-    
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("Received message:", data);
+      setMessages((prev) => [...prev, data]);
+      
+      // Update board position from the game state
+      if (data.state && data.state.position) {
+        console.log("Updating board position:", data.state.position);
+        setPosition(data.state.position);
+      }
+    };
 
-    if (!stompClient.connected) {
-      stompClient.deactivate();
+    socket.onclose = () => {
+      console.log("WebSocket disconnected");
+      setConnected(false);
+    };
+
+    socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      setConnected(false);
+    };
+  };
+
+  const disconnect = () => {
+    if (socketRef.current) {
+      socketRef.current.close();
+      setConnected(false);
     }
+  };
 
-    if (!stompClient.active) {
-      console.log("Not connected, activating...");
-      stompClient.activate();
+  const sendMove = (from: string, to: string, promotion: string = "") => {
+    if (!connected || !socketRef.current) {
+      console.log("Not connected to WebSocket");
       return false;
     }
 
-    stompClient.publish({
-      destination: `/api/game/${roomId}/move`,
-      body: JSON.stringify(move),
-    });
-    return true;
+    const message: MoveMessage = {
+      from,
+      to,
+      promotion,
+    };
+
+    try {
+      socketRef.current.send(JSON.stringify(message));
+      console.log("Sent move:", message);
+      return true;
+    } catch (error) {
+      console.error("Failed to send move:", error);
+      return false;
+    }
   };
 
-  function onDrop(
+  const onPieceDrop = (
     sourceSquare: Square,
     targetSquare: Square,
-    promotion: Piece
-  ): boolean {
-    const move = sendMoveRequest({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "",
-    });
-    return move;
-  }
+    piece: Piece
+  ): boolean => {
+    // Determine if this is a promotion move (pawn reaching end rank)
+    let promotion = "";
+    if (piece.includes("P") || piece.includes("p")) {
+      const targetRank = targetSquare[1];
+      if (targetRank === "8" || targetRank === "1") {
+        promotion = "q"; // Auto-promote to queen
+      }
+    }
 
-  function connect() {
-    stompClient.activate();
-  }
+    const moveSuccess = sendMove(sourceSquare, targetSquare, promotion);
+    return moveSuccess;
+  };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup on component unmount
+      socketRef.current?.close();
+    };
+  }, []);
 
   return (
-    <div className="w-dvh">
-      <div className="flex flex-col text-white">
-        <label className="mb-1 ">Reset Password</label>
-        <input
-          type="text"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-          required
-          className="border rounded px-3 py-2"
+    <div className="p-4 max-w-4xl mx-auto">
+      <div className="mb-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Game ID:</label>
+          <input
+            type="text"
+            value={gameId}
+            onChange={(e) => setGameId(e.target.value)}
+            disabled={connected}
+            className="border rounded px-3 py-2 flex-1 max-w-xs"
+            placeholder="Enter game ID"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={connect}
+            disabled={connected || !gameId}
+            className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {connected ? "Connected" : "Connect"}
+          </button>
+          
+          <button
+            onClick={disconnect}
+            disabled={!connected}
+            className="px-4 py-2 bg-red-500 text-white rounded disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Disconnect
+          </button>
+        </div>
+        
+        <div className="text-sm">
+          Status: <span className={connected ? "text-green-600" : "text-red-600"}>
+            {connected ? "Connected" : "Disconnected"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <Chessboard
+          position={position}
+          onPieceDrop={onPieceDrop}
+          autoPromoteToQueen={true}
+          boardWidth={400}
         />
       </div>
-      <Chessboard
-        onPieceDrop={onDrop}
-        autoPromoteToQueen={true}
-        position={game}
-      />
+
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-2">Messages:</h3>
+        <div className="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50">
+          {messages.length === 0 ? (
+            <p className="text-gray-500 text-sm">No messages yet</p>
+          ) : (
+            <ul className="space-y-1">
+              {messages.map((msg, idx) => (
+                <li key={idx} className="text-xs font-mono bg-white p-2 rounded border">
+                  {JSON.stringify(msg, null, 2)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default ChessWebSocketBoard;
