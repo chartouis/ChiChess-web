@@ -44,8 +44,8 @@ const ChessBackendTester: React.FC = () => {
     "auth" | "game" | "tools" | "social"
   >("game");
 
-  const API_BASE = "http://89.167.109.23:8080";
-  const WS_BASE = "ws://89.167.109.23:8080";
+  const API_BASE = "http://89.167.109.23:80";
+  const WS_BASE = "ws://89.167.109.23:80";
 
   // Calculate whose turn it is from FEN position
   const getTurnFromFEN = (fen: string): "WHITE" | "BLACK" => {
