@@ -20,13 +20,13 @@ import MessagesPanel from "./MessagesPanel";
 
 const ChessBackendTester: React.FC = () => {
   const socketRef = useRef<WebSocket | null>(null);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
 
   const [gameId, setGameId] = useState("");
   const [messages, setMessages] = useState<ChessMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [position, setPosition] = useState(
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   );
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [whiteTime, setWhiteTime] = useState<number>(0);
@@ -40,10 +40,12 @@ const ChessBackendTester: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [username, setUsername] = useState("");
   const [fingerprint, setFingerprint] = useState("test-fingerprint");
-  const [activeTab, setActiveTab] = useState<"auth" | "game" | "tools">("game");
+  const [activeTab, setActiveTab] = useState<
+    "auth" | "game" | "tools" | "social"
+  >("game");
 
-  const API_BASE = "http://25.16.58.143:8080";
-  const WS_BASE = "ws://25.16.58.143:8080";
+  const API_BASE = "http://localhost:8080";
+  const WS_BASE = "ws://localhost:8080";
 
   // Calculate whose turn it is from FEN position
   const getTurnFromFEN = (fen: string): "WHITE" | "BLACK" => {
@@ -65,9 +67,8 @@ const ChessBackendTester: React.FC = () => {
         clearInterval(timerIntervalRef.current);
       }
 
-      const currentPlayerTurn = roomState.position
-        ? getTurnFromFEN(roomState.position)
-        : "WHITE";
+      const currentPlayerTurn =
+        roomState.position ? getTurnFromFEN(roomState.position) : "WHITE";
       setCurrentTurn(currentPlayerTurn);
 
       const now = Date.now();
@@ -77,13 +78,13 @@ const ChessBackendTester: React.FC = () => {
       if (roomState.status === "ACTIVE" || roomState.status === "ONGOING") {
         if (currentPlayerTurn === "WHITE") {
           setWhiteTime(
-            Math.max(0, roomState.remainingWhite - elapsedSinceLastMove)
+            Math.max(0, roomState.remainingWhite - elapsedSinceLastMove),
           );
           setBlackTime(roomState.remainingBlack);
         } else {
           setWhiteTime(roomState.remainingWhite);
           setBlackTime(
-            Math.max(0, roomState.remainingBlack - elapsedSinceLastMove)
+            Math.max(0, roomState.remainingBlack - elapsedSinceLastMove),
           );
         }
 
@@ -92,9 +93,13 @@ const ChessBackendTester: React.FC = () => {
           const totalElapsed = nowInterval - lastMove;
 
           if (currentPlayerTurn === "WHITE") {
-            setWhiteTime(Math.max(0, roomState.remainingWhite - totalElapsed));
+            setWhiteTime(
+              Math.max(0, roomState.remainingWhite ?? 0 - totalElapsed),
+            );
           } else {
-            setBlackTime(Math.max(0, roomState.remainingBlack - totalElapsed));
+            setBlackTime(
+              Math.max(0, roomState.remainingBlack ?? 0 - totalElapsed),
+            );
           }
         }, 100);
       } else {
@@ -247,7 +252,7 @@ const ChessBackendTester: React.FC = () => {
   const onPieceDrop = (
     sourceSquare: Square,
     targetSquare: Square,
-    piece: Piece
+    piece: Piece,
   ): boolean => {
     let promotion = "";
     if (piece.includes("P") || piece.includes("p")) {
@@ -274,7 +279,7 @@ const ChessBackendTester: React.FC = () => {
         const res = await axios.post(
           `${API_BASE}/register`,
           { email, password, username, fingerprint },
-          { withCredentials: true }
+          { withCredentials: true },
         );
         console.log("Register response:", res.data);
         localStorage.setItem("chess_username", username);
@@ -283,7 +288,7 @@ const ChessBackendTester: React.FC = () => {
         const res = await axios.post(
           `${API_BASE}/login`,
           { password, username, fingerprint },
-          { withCredentials: true }
+          { withCredentials: true },
         );
         console.log("Login response:", res.data);
         localStorage.setItem("chess_username", username);
@@ -394,14 +399,14 @@ const ChessBackendTester: React.FC = () => {
 
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6">
-          {["game", "tools", "auth"].map((tab) => (
+          {["game", "tools", "social", "auth"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
               className={`clip-corner-sm px-6 py-3 font-bold uppercase tracking-wider transition-all ${
-                activeTab === tab
-                  ? "bg-cyan-500 text-black glow-cyan"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
+                activeTab === tab ?
+                  "bg-cyan-500 text-black glow-cyan"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
               }`}
             >
               {tab}

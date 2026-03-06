@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { JoinQueueRequest } from "./types";
+import type { JoinQueueRequest } from "./types";
 
 type MatchmakingPanelProps = {
   connected: boolean;

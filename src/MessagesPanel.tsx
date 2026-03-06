@@ -1,5 +1,5 @@
 import React from "react";
-import { ChessMessage } from "./types";
+import type { ChessMessage } from "./types";
 
 type MessagesPanelProps = {
   messages: ChessMessage[];
@@ -25,12 +25,11 @@ const MessagesPanel: React.FC<MessagesPanelProps> = ({ messages, onClear }) => {
       </div>
 
       <div className="h-64 overflow-y-auto bg-black border border-gray-800 p-3">
-        {messages.length === 0 ? (
+        {messages.length === 0 ?
           <p className="text-gray-600 text-sm font-mono">
             // No messages received
           </p>
-        ) : (
-          <div className="space-y-2">
+        : <div className="space-y-2">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -42,7 +41,7 @@ const MessagesPanel: React.FC<MessagesPanelProps> = ({ messages, onClear }) => {
               </div>
             ))}
           </div>
-        )}
+        }
       </div>
     </div>
   );

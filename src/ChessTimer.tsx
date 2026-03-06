@@ -1,5 +1,5 @@
 import React from "react";
-import { RoomState } from "./types";
+import type { RoomState } from "./types";
 
 type ChessTimerProps = {
   roomState: RoomState;
@@ -37,9 +37,9 @@ const ChessTimer: React.FC<ChessTimerProps> = ({
         {/* Black Timer */}
         <div
           className={`clip-corner-sm p-4 ${
-            currentTurn === "BLACK"
-              ? "bg-cyan-900/30 border-2 border-cyan-500 glow-cyan"
-              : "bg-gray-800 border border-gray-700"
+            currentTurn === "BLACK" ?
+              "bg-cyan-900/30 border-2 border-cyan-500 glow-cyan"
+            : "bg-gray-800 border border-gray-700"
           }`}
         >
           <div className="flex justify-between items-center">
@@ -68,9 +68,9 @@ const ChessTimer: React.FC<ChessTimerProps> = ({
         {/* White Timer */}
         <div
           className={`clip-corner-sm p-4 ${
-            currentTurn === "WHITE"
-              ? "bg-cyan-900/30 border-2 border-cyan-500 glow-cyan"
-              : "bg-gray-800 border border-gray-700"
+            currentTurn === "WHITE" ?
+              "bg-cyan-900/30 border-2 border-cyan-500 glow-cyan"
+            : "bg-gray-800 border border-gray-700"
           }`}
         >
           <div className="flex justify-between items-center">
