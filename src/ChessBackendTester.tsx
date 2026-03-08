@@ -44,8 +44,8 @@ const ChessBackendTester: React.FC = () => {
     "auth" | "game" | "tools" | "social"
   >("game");
 
-  const API_BASE = "http://89.167.109.23:80";
-  const WS_BASE = "ws://89.167.109.23:80";
+  const API_BASE = "https://yzarr.xyz";
+  const WS_BASE = "wss://yzarr.xyz";
 
   // Calculate whose turn it is from FEN position
   const getTurnFromFEN = (fen: string): "WHITE" | "BLACK" => {
@@ -576,7 +576,7 @@ const ChessBackendTester: React.FC = () => {
               <div className="mt-6 pt-6 border-t border-gray-700">
                 <button
                   onClick={refresh}
-                  className="w-full clip-corner-sm bg-green-600 hover:bg-green-500 text-black px-4 py-3 font-bold uppercase tracking-wider transition-all"
+                  className="w-full clip-corner-sm bg-green-600 hover:bg-green-500 text-black px-6 py-4 font-bold uppercase tracking-wider transition-all"
                 >
                   REFRESH TOKEN
                 </button>
