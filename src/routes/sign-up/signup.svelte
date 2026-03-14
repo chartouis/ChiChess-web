@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { signup, type SignupPayload} from "$lib/api";
+    import { signup, refresh ,login, type LoginPayload, type SignupPayload} from "$lib/api";
 	import { writable } from "svelte/store";
     import { resolve } from "$app/paths";
     const email = writable('');
@@ -15,6 +15,15 @@
             };
             const response = await signup(payload);
             console.log(response);
+            if(response.id != 0){
+            const lPayload: LoginPayload = {
+                username: $username,
+                    password: $password
+                }
+                console.log(await login(lPayload));
+                console.log (await refresh());
+            }
+            
         } catch (err) {
             console.log(err);
         }
@@ -28,14 +37,14 @@
 		<form class="space-y-4" onsubmit={handleSubmit}>
 	
 			<label class="label">
-				<input class="input" type="email" placeholder="Email" />
+				<input class="input" type="email" placeholder="Email" bind:value={$email} />
 			</label>
 
 		<label class="label">
-				<input class="input" type="text" placeholder="Username" />
+				<input class="input" type="text" placeholder="Username" bind:value={$username} />
 			</label>
 			<label class="label">
-				<input class="input" type="password" placeholder="Password" />
+				<input class="input" type="password" placeholder="Password" bind:value={$password}/>
 			</label>
 
 			<button type="submit" class="btn w-full preset-filled-tertiary-500">Sign Up</button>
