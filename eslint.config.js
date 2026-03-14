@@ -35,5 +35,16 @@ export default defineConfig(
 				svelteConfig
 			}
 		}
-	}
+	},
+	{
+  "svelte/no-navigation-without-resolve": [
+    "error",
+    {
+      "ignoreGoto": false,
+      "ignoreLinks": false,
+      "ignorePushState": false,
+      "ignoreReplaceState": false
+    }
+  ]
+}
 );
