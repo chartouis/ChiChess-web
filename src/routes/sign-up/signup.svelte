@@ -31,7 +31,7 @@
 </script>
 
 <div class="min-h-screen flex items-center justify-center">
-	<div class="border border-black w-full max-w-md space-y-6 card p-8">
+	<div class="border preset-outlined-tertiary-950-50 w-full max-w-md space-y-6 card p-8">
 		<h2 class="text-center h2 text-filled-tertiary-500">Sign Up</h2>
 
 		<form class="space-y-4" onsubmit={handleSubmit}>
