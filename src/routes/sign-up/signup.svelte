@@ -1,27 +1,29 @@
 <script lang="ts">
     import { signup, refresh ,login, type LoginPayload, type SignupPayload} from "$lib/api";
-	import { writable } from "svelte/store";
+    import { username } from "$lib/stores";
     import { resolve } from "$app/paths";
-    const email = writable('');
-    const username = writable('');
-    const password = writable('');
+
+    let password = $state('');
+    let email = $state('');
     async function handleSubmit(e:Event){
         e.preventDefault();
         try {
             const payload: SignupPayload = {
-                email: $email,
+                email: email,
                 username: $username,
-                password: $password
+                password: password
             };
             const response = await signup(payload);
             console.log(response);
             if(response.id != 0){
             const lPayload: LoginPayload = {
                 username: $username,
-                    password: $password
+                password: password
+            }
+                if(await login(lPayload)){
+				    localStorage.setItem('username', payload.username);
+                    console.log (await refresh());
                 }
-                console.log(await login(lPayload));
-                console.log (await refresh());
             }
             
         } catch (err) {
@@ -37,14 +39,14 @@
 		<form class="space-y-4" onsubmit={handleSubmit}>
 	
 			<label class="label">
-				<input class="input" type="email" placeholder="Email" bind:value={$email} />
+				<input class="input" type="email" placeholder="Email" bind:value={email} />
 			</label>
 
 		<label class="label">
-				<input class="input" type="text" placeholder="Username" bind:value={$username} />
+				<input class="input" type="username" placeholder="Username" bind:value={$username} />
 			</label>
 			<label class="label">
-				<input class="input" type="password" placeholder="Password" bind:value={$password}/>
+				<input class="input" type="password" placeholder="Password" bind:value={password}/>
 			</label>
 
 			<button type="submit" class="btn w-full preset-filled-tertiary-500">Sign Up</button>

@@ -1,11 +1,12 @@
-
 <script lang="ts">
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import Navbar from '$lib/components/Navbar.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { checkTokenAndRedirect, refresh } from '$lib/api';
 	import { REFRESH_INTERVAL } from '$lib/config';
+	import { username } from '$lib/stores';
 
 	const REFRESH_INTERVAL_MS=REFRESH_INTERVAL;
 
@@ -24,6 +25,7 @@
 	}
 
 	onMount(() => {
+		username.set(localStorage.getItem('username') ?? '');
 		checkTokenAndRedirect(); 
 		refreshTimer = setInterval(refreshToken, REFRESH_INTERVAL_MS);
 	});
@@ -37,4 +39,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<slot />
+<div class="min-h-screen bg-linear-to-br bg">
+	<Navbar />
+	<slot />
+</div>

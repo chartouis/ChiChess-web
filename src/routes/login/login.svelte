@@ -1,19 +1,17 @@
 <script lang="ts">
 	import { login, refresh, type LoginPayload } from '$lib/api';
 	import { resolve } from '$app/paths';
-	import { writable } from 'svelte/store';
-	const username = writable('');
-	const password = writable('');
+	import { username } from '$lib/stores';
+	let password = $state('');
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		try {
 			const payload: LoginPayload = {
 				username: $username,
-				password: $password
+				password: password
 			};
-			const response = await login(payload);
-			console.log(response);
-			if(response.token === "SUCCESS"){
+			if(await login(payload)){
+				localStorage.setItem('username', payload.username);
 				console.log(await refresh());
 			}
 		} catch (err) {
@@ -32,7 +30,7 @@
 				<input class="input" type="text" placeholder="Username" bind:value={$username} />
 			</label>
 			<label class="label">
-				<input class="input" type="password" placeholder="Password" bind:value={$password} />
+				<input class="input" type="password" placeholder="Password" bind:value={password} />
 			</label>
 
 			<button type="submit" class="btn w-full preset-filled-tertiary-500">Log In</button>
