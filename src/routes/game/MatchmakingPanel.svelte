@@ -6,7 +6,9 @@
   Cancelling closes the WebSocket (backend cancels the queue when connection drops).
 -->
 <script lang="ts">
-  import { getContext } from 'svelte';
+  import { onDestroy, onMount, getContext } from 'svelte';
+  import { fetchActiveQueueCounts } from '$lib/api';
+  import type { ActiveQueueCounts } from '$lib/api';
   import { isGameActive, isInQueue, queueElapsed } from '$lib/stores/game';
   import type { GameContext, JoinQueueRequest } from '$lib/types/chess';
 
@@ -19,6 +21,33 @@
   let maxRating = $state(2800);
 
   const gameTypes = ['bullet', 'blitz', 'rapid', 'classical'];
+
+  let activeCounts = $state<ActiveQueueCounts | null>(null);
+  let activePoll: ReturnType<typeof setInterval> | null = null;
+
+  function selectionKey(rated: boolean, gt: string): string {
+    return `${rated ? 'rated' : 'casual'}_${gt.toLowerCase()}`;
+  }
+
+  function sumActiveQueue(c: ActiveQueueCounts): number {
+    return Object.values(c).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+  }
+
+  onMount(() => {
+    async function tick() {
+      try {
+        activeCounts = await fetchActiveQueueCounts();
+      } catch {
+        /* ignore */
+      }
+    }
+    tick();
+    activePoll = setInterval(tick, 10_000);
+  });
+
+  onDestroy(() => {
+    if (activePoll) clearInterval(activePoll);
+  });
 
   // Format elapsed ms into m:ss
   function formatElapsed(ms: number): string {
@@ -120,6 +149,14 @@
             />
           </div>
         </div>
+
+        {#if activeCounts}
+          <p class="active-line">
+            {sumActiveQueue(activeCounts)} players searching · {activeCounts[selectionKey(rated, gameType)] ?? 0} in
+            {rated ? 'rated' : 'casual'}
+            {gameType}
+          </p>
+        {/if}
 
         <button class="btn-search" onclick={handleSearch}>
           Play
@@ -243,6 +280,13 @@
   .rating-sep {
     opacity: 0.4;
     font-size: 1rem;
+  }
+
+  .active-line {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    opacity: 0.5;
   }
 
   /* Search / Play button — the one important gradient button */

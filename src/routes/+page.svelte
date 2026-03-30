@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { fetchGameHistory, fetchRating } from '$lib/api';
+  import { checkTokenAndRedirect, fetchGameHistory, fetchRating } from '$lib/api';
   import HistoryMiniBoard from '$lib/components/game/HistoryMiniBoard.svelte';
   import { username } from '$lib/stores';
   import type { RoomState } from '$lib/types/chess';
   import { outcomeForUser } from '$lib/utils/gameOutcome';
+	import { onMount } from 'svelte';
 
   const PAGE_SIZE = 10;
 
@@ -39,6 +40,7 @@
   });
 
   $effect(() => {
+    checkTokenAndRedirect();
     const u = $username.trim();
     const page = historyPage;
     if (!u) {

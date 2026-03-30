@@ -1,23 +1,32 @@
 <!-- src/lib/components/game/ButtonPanel.svelte -->
-<!--
-  Renders game action buttons from a descriptor list.
-  Each button calls its action via GameWrapper context.
-  Adding new buttons = adding one entry to the actions array.
-  Disabled state is evaluated per button (e.g. can't resign if game is over).
--->
 <script lang="ts">
   import { getContext } from 'svelte';
+  import { username } from '$lib/stores';
   import { isGameActive, roomState } from '$lib/stores/game';
   import type { GameContext } from '$lib/types/chess';
 
   const { sendResign, sendDraw } = getContext<GameContext>('game');
 
-  // Whether a draw has already been offered (to show pending state).
-  $: drawOfferedBy = $roomState?.drawOfferedBy ?? null;
+  const drawOfferedBy = $derived($roomState?.drawOfferedBy ?? '');
 
-  // Action descriptor. Add entries here as the backend grows.
-  // `condition` is a function returning true when the button should be shown.
-  // `disabled` is a function returning true when it should be grayed out.
+  let declinedDraw = $state(false);
+  let prevDrawOfferedBy = $state<string | undefined>(undefined);
+
+  /** Fresh opponent offer: reset decline when drawOfferedBy changes to a new non-empty value */
+  $effect(() => {
+    const cur = $roomState?.drawOfferedBy ?? '';
+    if (prevDrawOfferedBy === undefined) {
+      prevDrawOfferedBy = cur;
+      return;
+    }
+    if (cur !== prevDrawOfferedBy) {
+      if (cur !== '') {
+        declinedDraw = false;
+      }
+      prevDrawOfferedBy = cur;
+    }
+  });
+
   type Action = {
     label: string | (() => string);
     action: () => void;
@@ -34,15 +43,16 @@
       variant: 'danger',
     },
     {
-      label: () => drawOfferedBy ? 'Draw offered' : 'Offer draw',
+      label: () =>
+        drawOfferedBy !== '' && drawOfferedBy === $username ? 'Draw offered' : 'Offer draw',
       action: sendDraw,
-      condition: () => $isGameActive,
-      disabled: () => drawOfferedBy !== null,
+      condition: () =>
+        $isGameActive && (drawOfferedBy === '' || drawOfferedBy === $username),
+      disabled: () => drawOfferedBy !== '' && drawOfferedBy === $username,
       variant: 'default',
     },
   ];
 
-  // Resolve label — allow label to be a string or a function
   function resolveLabel(action: Action): string {
     return typeof action.label === 'function' ? (action.label as () => string)() : action.label;
   }
@@ -54,9 +64,28 @@
   function isDisabled(action: Action): boolean {
     return action.disabled ? action.disabled() : false;
   }
+
+  const showOpponentDrawPopup = $derived(
+    $isGameActive &&
+      drawOfferedBy !== '' &&
+      drawOfferedBy !== $username &&
+      !declinedDraw
+  );
 </script>
 
 <div class="panel">
+  {#if showOpponentDrawPopup}
+    <div class="draw-offer">
+      <p class="draw-offer__label">{drawOfferedBy} offers a draw</p>
+      <div class="draw-offer__row">
+        <button type="button" class="draw-offer__btn" onclick={() => sendDraw()}>Accept</button>
+        <button type="button" class="draw-offer__btn draw-offer__btn--muted" onclick={() => (declinedDraw = true)}>
+          Decline
+        </button>
+      </div>
+    </div>
+  {/if}
+
   {#each actions as action}
     {#if isVisible(action)}
       <button
@@ -79,8 +108,48 @@
     gap: 0.5rem;
   }
 
+  .draw-offer {
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.15rem;
+    border-radius: 2px;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border-left: 3px solid color-mix(in srgb, rgb(var(--color-tertiary-500)) 55%, transparent);
+    background: color-mix(in srgb, currentColor 4%, transparent);
+  }
+
+  .draw-offer__label {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .draw-offer__row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .draw-offer__btn {
+    flex: 1;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 2px;
+    border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .draw-offer__btn:hover {
+    background: color-mix(in srgb, currentColor 6%, transparent);
+  }
+
+  .draw-offer__btn--muted {
+    opacity: 0.85;
+  }
+
   .action-btn {
-    /* Base: unstyled button that uses Skeleton's surface tokens */
     width: 100%;
     padding: 0.6rem 1rem;
     border-radius: 0.375rem;
@@ -90,7 +159,6 @@
     cursor: pointer;
     transition: opacity 0.15s ease;
 
-    /* Light neutral by default — blends with any Skeleton preset */
     background: transparent;
     border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
     color: inherit;
@@ -105,11 +173,9 @@
     cursor: not-allowed;
   }
 
-  /* Resign and other destructive actions get a subtle red tint */
   .action-btn--danger {
-    color: rgb(239 68 68); /* red-500 */
+    color: rgb(239 68 68);
     border-color: color-mix(in srgb, rgb(239 68 68) 30%, transparent);
-    /* Gradient only on important/destructive actions */
     background: linear-gradient(
       135deg,
       color-mix(in srgb, rgb(239 68 68) 8%, transparent),
@@ -121,7 +187,6 @@
     background: color-mix(in srgb, rgb(239 68 68) 14%, transparent);
   }
 
-  /* Subtle: secondary utility buttons, visually quieter */
   .action-btn--subtle {
     font-size: 0.8rem;
     opacity: 0.6;

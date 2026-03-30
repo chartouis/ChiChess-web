@@ -27,6 +27,10 @@
   let reconnectDelay      = 1000;
   let pendingQueueRequest : JoinQueueRequest | null = null;
 
+  /** Avoid scheduling multiple post-game reconnects from repeated WS messages */
+  let gameEndReconnectScheduled = false;
+  let gameEndReconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
   // Prevents spamming the REST check when the clock sits at zero
   let timerExpiredChecked = false;
 
@@ -68,7 +72,7 @@
 
     const turn     = state.position ? getTurnFromFEN(state.position) : 'WHITE';
     const now      = Date.now();
-    const lastMove = state.lastMoveEpoch ?? now;
+    const lastMove = state.lastMoveEpoch ? state.lastMoveEpoch : null;
 
     currentTurn.set(turn);
 
@@ -77,24 +81,36 @@
 
     if (state.status === 'ONGOING') {
       if (turn === 'WHITE') {
-        whiteTime.set(Math.max(0, (state.remainingWhite ?? 0) - (now - lastMove)));
+        whiteTime.set(
+          lastMove
+            ? Math.max(0, (state.remainingWhite ?? 0) - (now - lastMove))
+            : (state.remainingWhite ?? 0)
+        );
         blackTime.set(state.remainingBlack ?? 0);
       } else {
         whiteTime.set(state.remainingWhite ?? 0);
-        blackTime.set(Math.max(0, (state.remainingBlack ?? 0) - (now - lastMove)));
+        blackTime.set(
+          lastMove
+            ? Math.max(0, (state.remainingBlack ?? 0) - (now - lastMove))
+            : (state.remainingBlack ?? 0)
+        );
       }
 
       timerInterval = setInterval(() => {
-        const elapsed = Date.now() - lastMove;
+        const elapsed = lastMove ? Date.now() - lastMove : 0;
 
         if (turn === 'WHITE') {
-          const newTime = Math.max(0, (state.remainingWhite ?? 0) - elapsed);
+          const newTime = lastMove
+            ? Math.max(0, (state.remainingWhite ?? 0) - elapsed)
+            : (state.remainingWhite ?? 0);
           whiteTime.set(newTime);
-          if (newTime <= 0) checkGameEndedAfterTimeout();
+          if (lastMove && newTime <= 0) checkGameEndedAfterTimeout();
         } else {
-          const newTime = Math.max(0, (state.remainingBlack ?? 0) - elapsed);
+          const newTime = lastMove
+            ? Math.max(0, (state.remainingBlack ?? 0) - elapsed)
+            : (state.remainingBlack ?? 0);
           blackTime.set(newTime);
-          if (newTime <= 0) checkGameEndedAfterTimeout();
+          if (lastMove && newTime <= 0) checkGameEndedAfterTimeout();
         }
       }, 100);
     } else {
@@ -171,6 +187,11 @@
           isInQueue.set(false);
           stopQueueTimer();
         }
+
+        const st = state.status;
+        if (st != null && st !== 'ONGOING' && st !== 'WAITING') {
+          scheduleReconnectAfterGameEnd();
+        }
       }
     };
 
@@ -198,6 +219,34 @@
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
     socket?.close();
     connected.set(false);
+  }
+
+  /** After a finished game, tear down the socket and reconnect so the next queue join uses a clean WS. */
+  function scheduleReconnectAfterGameEnd() {
+    if (gameEndReconnectScheduled) return;
+    gameEndReconnectScheduled = true;
+    if (gameEndReconnectTimeout) clearTimeout(gameEndReconnectTimeout);
+    gameEndReconnectTimeout = setTimeout(() => {
+      gameEndReconnectTimeout = null;
+      gameEndReconnectScheduled = false;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      intentionalClose = true;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      socket?.close();
+      socket = null;
+      connected.set(false);
+      roomState.set(null);
+      gameId.set('');
+      reconnectDelay = 1000;
+      intentionalClose = false;
+      connect();
+    }, 500);
   }
 
   // -------------------------------------------------------------------------
@@ -278,6 +327,7 @@
   onDestroy(() => {
     intentionalClose = true;
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    if (gameEndReconnectTimeout) clearTimeout(gameEndReconnectTimeout);
     if (timerInterval)    clearInterval(timerInterval);
     if (queueInterval)    clearInterval(queueInterval);
     socket?.close();
